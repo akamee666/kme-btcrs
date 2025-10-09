@@ -1,0 +1,11 @@
+[package]
+name = "lib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ciborium = "0.2.2"
+serde = { version = "1.0.228", features = ["derive"] }
+sha256 = "1.6.0"
+uint = "0.10.0"
+uuid = { version = "1.18.1", features = ["v4", "serde"] }
