@@ -4,8 +4,14 @@ use ecdsa::{
 };
 use k256::Secp256k1;
 use serde::{Deserialize, Serialize};
+use spki::EncodePublicKey;
 
-use crate::sha256::Hash;
+use std::{
+    fmt,
+    io::{Error as IoError, Read, Result as IoResult, Write},
+};
+
+use crate::{sha256::Hash, util::Saveable};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Signature(ECDSASignature<Secp256k1>);
@@ -61,5 +67,62 @@ impl Signature {
             .0
             .verify(&output_hash.as_bytes(), &self.0)
             .is_ok()
+    }
+}
+
+impl Saveable for PrivateKey {
+    fn load<I: Read>(reader: I) -> IoResult<Self> {
+        ciborium::de::from_reader(reader).map_err(|_| {
+            IoError::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to deserialize PrivateKey",
+            )
+        })
+    }
+
+    fn save<O: Write>(&self, writer: O) -> IoResult<()> {
+        ciborium::ser::into_writer(self, writer).map_err(|_| {
+            IoError::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to serialize PrivateKey",
+            )
+        })?;
+        Ok(())
+    }
+}
+
+impl Saveable for PublicKey {
+    fn load<I: Read>(mut reader: I) -> IoResult<Self> {
+        // read PEM-encoded public key into string
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf)?;
+
+        // decode the public key from PEM
+        let public_key = buf.parse().map_err(|_| {
+            IoError::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to serialize PrivateKey",
+            )
+        })?;
+
+        Ok(PublicKey(public_key))
+    }
+
+    fn save<O: Write>(&self, mut writer: O) -> IoResult<()> {
+        let s = self.0.to_public_key_pem(Default::default()).map_err(|_| {
+            IoError::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to serialize PrivateKey",
+            )
+        })?;
+        writer.write_all(s.as_bytes())?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let encoded = self.0.to_encoded_point(true);
+        write!(f, "PublicKey({})", hex::encode(encoded.as_bytes()))
     }
 }
