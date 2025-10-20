@@ -3,6 +3,11 @@ use crate::{
     types::{Block, Transaction, TransactionOutput},
 };
 
+use std::io::{Error as IoError, Read, Write};
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum Message {
     /// Fetch all UTXOs belonging to a owner/wallet/public key. That's how we are going to know how
     /// much satoshis we have
@@ -38,4 +43,34 @@ pub enum Message {
     FetchBlock(usize),
     /// Broadcast a new block to other nodes
     NewBlock(Block),
+}
+
+impl Message {
+    pub fn encode(&self) -> Result<Vec<u8>, ciborium::ser::Error<IoError>> {
+        let mut bytes = Vec::new();
+        ciborium::into_writer(self, &mut bytes)?;
+        Ok(bytes)
+    }
+
+    pub fn decode(data: &[u8]) -> Result<Self, ciborium::de::Error<IoError>> {
+        ciborium::from_reader(data)
+    }
+
+    pub fn send(&self, stream: &mut impl Write) -> Result<(), ciborium::ser::Error<IoError>> {
+        let bytes = self.encode()?;
+        let len = bytes.len() as u64;
+        stream.write_all(&len.to_be_bytes())?;
+        // shouldn't we check if receiver received the len first?
+        stream.write_all(&bytes)?;
+        Ok(())
+    }
+
+    pub fn receive(stream: &mut impl Read) -> Result<Self, ciborium::de::Error<IoError>> {
+        let mut len_bytes = [0u8; 8];
+        stream.read_exact(&mut len_bytes)?;
+        let len = u64::from_be_bytes(len_bytes) as usize;
+        let mut data = vec![0u8; len];
+        stream.read_exact(&mut data)?;
+        Self::decode(&data)
+    }
 }
