@@ -16,7 +16,7 @@ use crate::{sha256::Hash, util::Saveable};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Signature(ECDSASignature<Secp256k1>);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct PublicKey(VerifyingKey<Secp256k1>);
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
