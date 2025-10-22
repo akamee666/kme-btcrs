@@ -14,7 +14,10 @@ pub async fn handle_connection(mut socket: TcpStream) {
         let message = match Message::receive_async(&mut socket).await {
             Ok(message) => message,
             Err(e) => {
-                println!("invalid message from peer: {e}, closing that connection");
+                println!(
+                    "invalid message from peer: {}, error: {e}",
+                    socket.peer_addr().unwrap()
+                );
                 return;
             }
         };
@@ -51,10 +54,8 @@ pub async fn handle_connection(mut socket: TcpStream) {
                 let message = Difference(count);
                 message.send_async(&mut socket).await.unwrap();
             }
-            FetchUTXOS(key) => {
-                println!("received request to fetch UTXOs");
+            FetchUTXOs(key) => {
                 let blockchain = crate::BLOCKCHAIN.read().await;
-
                 let utxos = blockchain
                     .utxos()
                     .iter()
@@ -64,6 +65,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
 
                 let message = UTXOs(utxos);
                 message.send_async(&mut socket).await.unwrap();
+                println!("Message with utxo sent back!");
             }
 
             NewBlock(block) => {

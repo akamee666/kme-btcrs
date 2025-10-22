@@ -1,6 +1,5 @@
 use ecdsa::{
-    Signature as ECDSASignature, SigningKey, VerifyingKey, signature::SignerMut,
-    signature::Verifier,
+    Signature as ECDSASignature, SigningKey, VerifyingKey, signature::Signer, signature::Verifier,
 };
 use k256::Secp256k1;
 use serde::{Deserialize, Serialize};
@@ -16,10 +15,10 @@ use crate::{sha256::Hash, util::Saveable};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Signature(ECDSASignature<Secp256k1>);
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub struct PublicKey(VerifyingKey<Secp256k1>);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PrivateKey(#[serde(with = "signkey_serde")] SigningKey<Secp256k1>);
 
 mod signkey_serde {
@@ -57,7 +56,7 @@ impl PrivateKey {
 }
 
 impl Signature {
-    pub fn sign_output(output_hash: &Hash, private_key: &mut PrivateKey) -> Self {
+    pub fn sign_output(output_hash: &Hash, private_key: &PrivateKey) -> Self {
         let signature = private_key.0.sign(&output_hash.as_bytes());
         Signature(signature)
     }
@@ -124,5 +123,20 @@ impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let encoded = self.0.to_encoded_point(true);
         write!(f, "PublicKey({})", hex::encode(encoded.as_bytes()))
+    }
+}
+
+impl fmt::Debug for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let encoded = self.0.to_encoded_point(true);
+        write!(f, "PublicKey({})", hex::encode(encoded.as_bytes()))
+    }
+}
+
+impl fmt::Debug for PrivateKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let matching_key = self.0.verifying_key();
+        let encoded = matching_key.to_encoded_point(true);
+        write!(f, "MatchingKey({})", hex::encode(encoded.as_bytes()))
     }
 }

@@ -69,9 +69,9 @@ impl Miner {
             loop {
                 if mining.load(Ordering::Relaxed) {
                     if let Some(mut block) = template.lock().unwrap().clone() {
-                        println!("Mining block with target: {}", block.header.target);
                         if block.header.mine(2_000_000) {
                             println!("Block mined: {}", block.hash());
+                            println!("Target was: {}", block.header.target);
                             sender.send(block).expect("Failed to send mined block");
                             mining.store(false, Ordering::Relaxed);
                         }

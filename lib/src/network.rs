@@ -8,11 +8,11 @@ use std::io::{Error as IoError, Read, Write};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     /// Fetch all UTXOs belonging to a owner/wallet/public key. That's how we are going to know how
     /// much satoshis we have
-    FetchUTXOS(PublicKey),
+    FetchUTXOs(PublicKey),
     /// UTXOs belonging to a public key. Bool determines if marked (Already spent)
     UTXOs(Vec<(bool, TransactionOutput)>),
     /// Send a transaction to the network.

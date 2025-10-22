@@ -74,6 +74,4 @@ async fn main() -> Result<()> {
         let (socket, _) = listener.accept().await?;
         tokio::spawn(handler::handle_connection(socket));
     }
-
-    Ok(())
 }
