@@ -10,6 +10,8 @@ use std::sync::Arc;
 use crate::core::*;
 
 mod core;
+mod tasks;
+mod util;
 
 #[derive(Parser)]
 #[command(author, version, about,long_about = None)]
@@ -49,13 +51,14 @@ async fn main() -> Result<()> {
     let config_path = cli
         .config
         .unwrap_or_else(|| PathBuf::from("wallet_config.toml"));
-    let mut core =
-        Core::load_config(config_path.clone()).with_context(|| "Failed to load config")?;
+    let mut core = Core::load_config(config_path.clone())
+        .await
+        .with_context(|| "Failed to load config")?;
     if let Some(node) = cli.node {
         core.config.default_node = node;
     }
     let (tx_sender, tx_receiver) = kanal::bounded(10);
-    core.tx_sender = tx_sender.clone_async();
+    core.tx_sender = tx_sender;
     let core = Arc::new(core);
     tokio::spawn(update_utxos(core.clone()));
     tokio::spawn(handle_transactions(tx_receiver.clone_async(), core.clone()));
@@ -87,24 +90,6 @@ fn generate_dummy_config(path: PathBuf) -> Result<()> {
     std::fs::write(&path, config_str)?;
     println!("Dummy config generated at: {}", path.display());
     Ok(())
-}
-
-async fn update_utxos(core: Arc<Core>) {
-    let mut interval = time::interval(Duration::from_secs(20));
-    loop {
-        interval.tick().await;
-        if let Err(e) = core.fetch_utxos().await {
-            eprintln!("Failed to update UTXOS: {e}");
-        }
-    }
-}
-
-async fn handle_transactions(rx: kanal::AsyncReceiver<Transaction>, core: Arc<Core>) {
-    while let Ok(transaction) = rx.recv().await {
-        if let Err(e) = core.send_transaction(transaction).await {
-            eprintln!("Failed to send transaction: {e}");
-        }
-    }
 }
 
 async fn run_cli(core: Arc<Core>) -> Result<()> {
@@ -140,8 +125,8 @@ async fn run_cli(core: Arc<Core>) -> Result<()> {
                 if let Err(e) = core.fetch_utxos().await {
                     println!("Failed to fetch utxos: {e}");
                 };
-                let transaction = core.create_transaction(&recipient_key, amount).await?;
-                core.tx_sender.send(transaction).await?;
+                let transaction = core.create_transaction(&recipient_key, amount)?;
+                core.tx_sender.send(transaction)?;
                 println!("Transaction sent successfully");
                 core.fetch_utxos().await?;
             }
